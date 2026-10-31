@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sarraf</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Quick price reference for travellers: see what local prices cost in your home currencies.">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sarraf">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+/* Layout: iOS-style tab app. Large-title views, inset grouped lists, bottom tab bar, sheet for currency picking. */
+:root {
+  --bg: #F2F2F7;           /* systemGroupedBackground */
+  --card: #FFFFFF;         /* secondarySystemGroupedBackground */
+  --fill: rgba(118,118,128,.12);
+  --fill-strong: rgba(118,118,128,.2);
+  --label: #000000;
+  --label-2: rgba(60,60,67,.6);
+  --label-3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18);
+  --tint: #0B7A68;         /* verdigris */
+  --tint-soft: rgba(11,122,104,.10);
+  --red: #FF3B30;
+  --orange: #C25E00;
+  --bar: rgba(249,249,249,.82);
+  --row-hi: rgba(11,122,104,.08);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --font-num: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  --r: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000; --card: #1C1C1E; --fill: rgba(118,118,128,.24); --fill-strong: rgba(118,118,128,.36);
+    --label: #FFFFFF; --label-2: rgba(235,235,245,.6); --label-3: rgba(235,235,245,.3);
+    --sep: rgba(84,84,88,.55); --tint: #45D3B4; --tint-soft: rgba(69,211,180,.14);
+    --red: #FF453A; --orange: #FF9F0A; --bar: rgba(22,22,24,.8); --row-hi: rgba(69,211,180,.12);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #000000; --card: #1C1C1E; --fill: rgba(118,118,128,.24); --fill-strong: rgba(118,118,128,.36);
+  --label: #FFFFFF; --label-2: rgba(235,235,245,.6); --label-3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.55); --tint: #45D3B4; --tint-soft: rgba(69,211,180,.14);
+  --red: #FF453A; --orange: #FF9F0A; --bar: rgba(22,22,24,.8); --row-hi: rgba(69,211,180,.12);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--label);
+  font: 17px/1.3 var(--font); letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior-y: none;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; border-radius: 8px; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* Nav bar (compact title appears once the large title scrolls away) */
+.navbar {
+  position: sticky; top: 0; z-index: 20;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: transparent; transition: background .2s, box-shadow .2s;
+}
+.navbar .inner { height: 44px; display: flex; align-items: center; justify-content: center; }
+.navbar .small-title { font-weight: 600; font-size: 17px; opacity: 0; transition: opacity .2s; }
+.navbar.scrolled { background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: 0 .5px 0 var(--sep); }
+.navbar.scrolled .small-title { opacity: 1; }
+
+.view { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 640px; margin: 0 auto; }
+.large-title { font: 700 34px/1.12 var(--font-display); letter-spacing: 0.01em; margin: 0 0 4px; }
+.subhead { color: var(--label-2); font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 22px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tint); flex: none; }
+.status-dot.warn { background: var(--orange); }
+
+.section-label { text-transform: uppercase; font-size: 13px; letter-spacing: .02em; color: var(--label-2); margin: 24px 16px 7px; }
+.footnote { font-size: 13px; color: var(--label-2); margin: 7px 16px 0; line-height: 1.38; }
+.footnote a { color: var(--tint); }
+
+/* Location chip */
+.here {
+  margin-top: 16px; display: flex; align-items: center; gap: 12px; width: 100%;
+  background: var(--card); border-radius: var(--r); padding: 12px 16px; text-align: left; min-height: 64px;
+}
+.here .flag { font-size: 34px; line-height: 1; }
+.here .t1 { font-size: 13px; color: var(--label-2); }
+.here .t2 { font-weight: 600; font-size: 17px; }
+.here .chev { margin-left: auto; color: var(--label-3); }
+
+/* Segmented control */
+.seg { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; gap: 0; position: relative; }
+.seg button {
+  flex: 1 1 0; min-width: 0; height: 32px; border-radius: 7px; font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; overflow: hidden;
+  transition: background .2s, box-shadow .2s;
+}
+.seg button[aria-pressed="true"] { background: var(--card); font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04); }
+:root[data-theme="dark"] .seg button[aria-pressed="true"] { background: #636366; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg button[aria-pressed="true"] { background: #636366; } }
+.seg-wrap { display: grid; gap: 8px; margin-top: 20px; }
+.seg-caption { font-size: 13px; color: var(--label-2); padding-left: 4px; }
+
+/* Reference table */
+.table-card { background: var(--card); border-radius: var(--r); margin-top: 16px; }
+.thead { border-radius: var(--r) var(--r) 0 0; }
+.tbody .trow:last-child { border-radius: 0 0 var(--r) var(--r); }
+.trow { display: grid; grid-template-columns: var(--cols); align-items: center; min-height: 44px; padding: 0 12px; position: relative; }
+.trow > div { text-align: right; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px; }
+.trow > div:first-child { text-align: left; font-weight: 600; }
+.trow + .trow::before { content: ""; position: absolute; left: 12px; right: 0; top: 0; height: .5px; background: var(--sep); }
+.thead { min-height: 40px; background: var(--card); position: sticky; top: calc(44px + env(safe-area-inset-top, 0px)); z-index: 5; box-shadow: 0 .5px 0 var(--sep); }
+.thead > div { font-size: 13px; font-weight: 600; color: var(--label-2); font-family: var(--font); }
+.thead > div:first-child { color: var(--tint); }
+.thead .f { font-size: 15px; margin-right: 3px; }
+.tbody .trow { cursor: pointer; }
+.tbody .trow.hi { background: var(--row-hi); }
+.tbody .trow.hi > div:first-child { color: var(--tint); }
+.tbody .trow.major > div:first-child::after { content: ""; }
+.tgap { height: 8px; background: var(--bg); }
+.table-card .tgap + .trow::before { display: none; }
+
+/* Convert view */
+.amount-card { background: var(--card); border-radius: var(--r); margin-top: 16px; padding: 14px 16px 16px; }
+.amount-card label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--label-2); }
+.amount-card .flag { font-size: 20px; }
+.amount-input {
+  width: 100%; border: 0; outline: none; background: transparent; color: var(--label);
+  font: 600 44px/1.1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; padding: 6px 0 0; margin: 0;
+}
+.amount-input::placeholder { color: var(--label-3); }
+.amount-hint { font-size: 13px; color: var(--label-2); margin-top: 4px; min-height: 17px; }
+
+.list { background: var(--card); border-radius: var(--r); overflow: hidden; }
+.cell { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 10px 16px; position: relative; width: 100%; text-align: left; }
+.cell + .cell::before { content: ""; position: absolute; left: 58px; right: 0; top: 0; height: .5px; background: var(--sep); }
+.list.plain .cell + .cell::before { left: 16px; }
+.cell .flag { font-size: 30px; line-height: 1; width: 30px; text-align: center; flex: none; }
+.cell .txt { min-width: 0; flex: 1; }
+.cell .t1 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell .t2 { font-size: 13px; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.cell .val { text-align: right; flex: none; max-width: 60%; }
+.cell .val .v1 { font: 600 22px/1.15 var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell .val .v2 { font-size: 12px; color: var(--label-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.cell .chev { color: var(--label-3); flex: none; }
+.cell .check { color: var(--tint); flex: none; font-weight: 600; }
+.cell.tint .t1 { color: var(--tint); }
+.cell.danger .t1 { color: var(--red); }
+.cell:active:not(.static) { background: var(--fill); }
+.cell .detail { color: var(--label-2); font-size: 17px; margin-left: auto; flex: none; }
+.minus { width: 22px; height: 22px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 17px; line-height: 1; }
+.minus[disabled] { opacity: .35; }
+.order { display: flex; gap: 2px; flex: none; }
+.order button { width: 34px; height: 34px; border-radius: 8px; color: var(--label-2); display: grid; place-items: center; }
+.order button:disabled { opacity: .25; }
+
+/* Tab bar */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 -.5px 0 var(--sep);
+  padding: 0 max(8px, env(safe-area-inset-left, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center;
+}
+.tabbar .tabs { display: flex; width: 100%; max-width: 520px; }
+.tabbar button { flex: 1; height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--label-2); font-size: 10px; font-weight: 500; letter-spacing: .01em; }
+.tabbar button svg { width: 26px; height: 26px; }
+.tabbar button[aria-selected="true"] { color: var(--tint); }
+
+/* Sheet */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 40; opacity: 0; transition: opacity .3s; }
+.scrim.open { opacity: 1; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; max-width: 640px; margin: 0 auto;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  background: var(--bg); border-radius: 12px 12px 0 0; display: flex; flex-direction: column;
+  transform: translateY(105%); transition: transform .38s cubic-bezier(.32,.72,0,1);
+  box-shadow: 0 -10px 40px rgba(0,0,0,.18);
+}
+.sheet.open { transform: none; }
+.sheet .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--label-3); margin: 6px auto 0; flex: none; }
+.sheet header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 50px; padding: 0 16px; flex: none; }
+.sheet header h2 { font-size: 17px; font-weight: 600; margin: 0; text-align: center; }
+.sheet header .done { justify-self: end; color: var(--tint); font-weight: 600; font-size: 17px; min-height: 44px; padding: 0 4px; }
+.search { margin: 0 16px 8px; display: flex; align-items: center; gap: 6px; background: var(--fill); border-radius: 10px; height: 36px; padding: 0 8px; flex: none; }
+.search svg { color: var(--label-2); flex: none; }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--label); font: 17px var(--font); }
+.search input::placeholder { color: var(--label-2); }
+.sheet .scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px)); flex: 1; }
+.sheet .section-label:first-child { margin-top: 8px; }
+.empty { text-align: center; color: var(--label-2); padding: 40px 16px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px);
+  background: var(--card); color: var(--label); padding: 10px 16px; border-radius: 22px; font-size: 15px; font-weight: 500;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); opacity: 0; transition: opacity .25s, transform .25s; z-index: 50; pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (min-width: 700px) { .large-title { margin-top: 8px; } }
+</style>
+</head>
+<body>
+
+<header class="navbar" id="navbar"><div class="inner"><span class="small-title" id="smallTitle">Prices</span></div></header>
+
+<main>
+  <!-- PRICES -->
+  <section class="view" id="view-prices" aria-labelledby="t-prices">
+    <h1 class="large-title" id="t-prices">Prices</h1>
+    <div class="subhead" id="statusLine"></div>
+
+    <button class="here" id="hereBtn" aria-label="Change where you are">
+      <span class="flag" id="hereFlag"></span>
+      <span><span class="t1">Where you are</span><br><span class="t2" id="hereName"></span></span>
+      <svg class="chev" width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 7.5 7.5 1.5 13.5"/></svg>
+    </button>
+
+    <div class="seg-wrap">
+      <div class="seg-caption">Price tag in</div>
+      <div class="seg" id="srcSegPrices" role="group" aria-label="Price tag currency"></div>
+    </div>
+    <div class="seg-wrap">
+      <div class="seg-caption">Range</div>
+      <div class="seg" id="rangeSeg" role="group" aria-label="Price range"></div>
+    </div>
+
+    <div class="table-card" id="table"></div>
+    <p class="footnote">Tap a row to highlight it. Mid-market rates; card and counter rates usually run 1–5% worse.</p>
+  </section>
+
+  <!-- CONVERT -->
+  <section class="view" id="view-convert" aria-labelledby="t-convert" hidden>
+    <h1 class="large-title" id="t-convert">Convert</h1>
+    <div class="subhead" id="statusLine2"></div>
+
+    <div class="seg-wrap">
+      <div class="seg" id="srcSegConvert" role="group" aria-label="Amount currency"></div>
+    </div>
+
+    <div class="amount-card">
+      <label for="amount"><span class="flag" id="amtFlag"></span><span id="amtLabel"></span></label>
+      <input id="amount" class="amount-input" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="0" aria-label="Amount">
+      <div class="amount-hint" id="amtHint"></div>
+    </div>
+
+    <div class="section-label">Equals</div>
+    <div class="list" id="results"></div>
+    <p class="footnote">Tap a result to convert from that currency instead. You can type sums like 450×3 or 1200+350.</p>
+  </section>
+
+  <!-- CURRENCIES -->
+  <section class="view" id="view-settings" aria-labelledby="t-settings" hidden>
+    <h1 class="large-title" id="t-settings">Currencies</h1>
+
+    <div class="section-label">Where you are</div>
+    <div class="list"><button class="cell" id="localRow"></button></div>
+    <p class="footnote">The currency on the price tags around you.</p>
+
+    <div class="section-label">Home currencies</div>
+    <div class="list" id="homeList"></div>
+    <p class="footnote">Shown as columns in Prices. Up to three.</p>
+
+    <div class="section-label">Exchange rates</div>
+    <div class="list plain">
+      <div class="cell static"><div class="txt"><div class="t1">Rates as of</div></div><span class="detail" id="ratesDate"></span></div>
+      <div class="cell static"><div class="txt"><div class="t1">Source</div></div><span class="detail" id="ratesSource"></span></div>
+      <button class="cell tint" id="refreshBtn"><div class="txt"><div class="t1">Update now</div></div></button>
+    </div>
+    <p class="footnote">Live rates come from the free <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Exchange API</a> (updated daily, about 160 world currencies), with <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">ExchangeRate-API</a> as a backup. The last rates are saved on your phone, so the app keeps working offline.</p>
+
+    <div class="section-label">Install on iPhone</div>
+    <div class="list plain"><div class="cell static"><div class="txt"><div class="t1" style="white-space:normal">Open this page in Safari, tap Share, then Add to Home Screen.</div></div></div></div>
+    <div style="height:24px"></div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Sections"><div class="tabs" role="tablist">
+  <button role="tab" data-tab="prices" aria-selected="true">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3.5H23a1.5 1.5 0 0 1 1.5 1.5v7.8a2 2 0 0 1-.6 1.4L14.6 23.5a2 2 0 0 1-2.8 0l-7.3-7.3a2 2 0 0 1 0-2.8l9.3-9.3a2 2 0 0 1 1.4-.6Z"/><circle cx="19.3" cy="8.7" r="1.8"/></svg>
+    Prices</button>
+  <button role="tab" data-tab="convert" aria-selected="false">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9.5h17M17.5 5l4.5 4.5-4.5 4.5M23 18.5H6M10.5 14 6 18.5l4.5 4.5"/></svg>
+    Convert</button>
+  <button role="tab" data-tab="settings" aria-selected="false">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="14" r="10"/><path d="M4 14h20M14 4c2.8 2.7 4.2 6 4.2 10S16.8 21.3 14 24c-2.8-2.7-4.2-6-4.2-10S11.2 6.7 14 4Z"/></svg>
+    Currencies</button>
+</div></nav>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <div class="grab"></div>
+  <header><span></span><h2 id="sheetTitle">Where are you?</h2><button class="done" id="sheetDone">Done</button></header>
+  <div class="search">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7" cy="7" r="5.2"/><path d="m11 11 3.5 3.5"/></svg>
+    <input id="search" type="search" placeholder="Country or currency" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Search currencies">
+  </div>
+  <div class="scroll" id="sheetList"></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Currency catalogue (ISO 4217, circulating) ---------- */
+// Approximate units per 1 USD. Used only until live rates load (first launch offline, or preview).
+const BUNDLED = {AED:3.6725,AFN:68,ALL:83,AMD:385,ANG:1.79,AOA:915,ARS:1400,AUD:1.53,AWG:1.79,AZN:1.7,BAM:1.68,BBD:2,BDT:122,BGN:1.68,BHD:0.376,BIF:2950,BMD:1,BND:1.3,BOB:6.91,BRL:5.4,BSD:1,BTN:88,BWP:13.4,BYN:3,BZD:2,CAD:1.4,CDF:2850,CHF:0.8,CLP:950,CNY:7.12,COP:3900,CRC:503,CUP:24,CVE:94.5,CZK:21,DJF:177.7,DKK:6.42,DOP:63,DZD:130,EGP:47.5,ERN:15,ETB:150,EUR:0.86,FJD:2.27,FKP:0.75,GBP:0.75,GEL:2.71,GHS:11,GIP:0.75,GMD:72,GNF:8680,GTQ:7.66,GYD:209,HKD:7.77,HNL:26.2,HTG:131,HUF:335,IDR:16600,ILS:3.3,INR:88,IQD:1310,IRR:42000,ISK:122,JMD:160,JOD:0.709,JPY:152,KES:129.2,KGS:87.4,KHR:4010,KMF:423,KPW:900,KRW:1430,KWD:0.306,KYD:0.833,KZT:530,LAK:21700,LBP:89500,LKR:302,LRD:180,LSL:17.3,LYD:5.45,MAD:9.2,MDL:17,MGA:4500,MKD:53,MMK:2100,MNT:3590,MOP:8,MRU:39.9,MUR:45.5,MVR:15.4,MWK:1735,MXN:18.4,MYR:4.2,MZN:63.9,NAD:17.3,NGN:1460,NIO:36.8,NOK:10.1,NPR:141,NZD:1.74,OMR:0.3845,PAB:1,PEN:3.38,PGK:4.2,PHP:58.5,PKR:281,PLN:3.65,PYG:7100,QAR:3.64,RON:4.38,RSD:101,RUB:80,RWF:1450,SAR:3.75,SBD:8.2,SCR:14.3,SDG:600,SEK:9.45,SGD:1.3,SHP:0.75,SLE:23.2,SOS:571,SRD:39,SSP:4500,STN:21.1,SVC:8.75,SYP:13000,SZL:17.3,THB:32.5,TJS:9.3,TMT:3.5,TND:2.93,TOP:2.4,TRY:42,TTD:6.78,TWD:30.7,TZS:2460,UAH:41.8,UGX:3450,USD:1,UYU:39.9,UZS:12000,VES:200,VND:26300,VUV:120,WST:2.75,XAF:563,XCD:2.7,XCG:1.79,XOF:563,XPF:102.5,YER:239,ZAR:17.3,ZMW:22.5,ZWG:26.5};
+const CODES = Object.keys(BUNDLED);
+
+// Region for the flag; X-codes are multi-country unions.
+const REGION_OVERRIDE = { EUR:'EU', ANG:'CW', XCG:'CW', XAF:null, XOF:null, XCD:null, XPF:null };
+const GLOBE = { XAF:'🌍', XOF:'🌍', XCD:'🌎', XPF:'🌏' };
+const NAME_FALLBACK = { XCG:'Caribbean Guilder', ZWG:'Zimbabwe Gold', SLE:'Sierra Leonean Leone', VES:'Venezuelan Bolívar', MRU:'Mauritanian Ouguiya', STN:'São Tomé & Príncipe Dobra', ANG:'Netherlands Antillean Guilder' };
+const EXTRA_KEYWORDS = {
+  EUR:'europe eurozone france germany italy spain portugal netherlands belgium austria ireland greece finland croatia slovakia slovenia estonia latvia lithuania luxembourg malta cyprus montenegro kosovo',
+  XOF:'west africa cfa senegal cote d ivoire ivory coast mali burkina faso niger togo benin guinea-bissau',
+  XAF:'central africa cfa cameroon gabon chad congo brazzaville central african republic equatorial guinea',
+  XCD:'eastern caribbean antigua barbuda dominica grenada st kitts nevis saint lucia st vincent anguilla montserrat',
+  XPF:'cfp french polynesia tahiti new caledonia wallis futuna',
+  USD:'united states america ecuador el salvador panama zimbabwe timor puerto rico',
+  AUD:'kiribati nauru tuvalu', NZD:'cook islands niue', INR:'bharat', GBP:'uk britain england scotland wales pound sterling',
+  CHF:'liechtenstein', ZAR:'lesotho namibia eswatini', XCG:'curacao sint maarten', ANG:'curacao sint maarten'
+};
+
+const locale = (navigator.languages && navigator.languages[0]) || 'en';
+let curNames, regNames;
+try { curNames = new Intl.DisplayNames([locale, 'en'], { type: 'currency' }); } catch (e) {}
+try { regNames = new Intl.DisplayNames([locale, 'en'], { type: 'region' }); } catch (e) {}
+
+const META = {};
+for (const code of CODES) {
+  const region = code in REGION_OVERRIDE ? REGION_OVERRIDE[code] : code.slice(0, 2);
+  let name = NAME_FALLBACK[code];
+  if (!name && curNames) { try { const n = curNames.of(code); if (n && n !== code) name = n; } catch (e) {} }
+  name = name || code;
+  let country = '';
+  if (region && regNames) { try { country = code === 'EUR' ? 'Eurozone' : regNames.of(region) || ''; } catch (e) {} }
+  const flag = region ? [...region].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('') : (GLOBE[code] || '🌐');
+  META[code] = { code, name, country, flag, search: (code + ' ' + name + ' ' + country + ' ' + (EXTRA_KEYWORDS[code] || '')).toLowerCase() };
+}
+const meta = c => META[c] || { code: c, name: c, country: '', flag: '🌐' };
+
+/* ---------- Storage (never required) ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('sarraf.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('sarraf.' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+const state = Object.assign({
+  local: 'KES', home: ['USD', 'CAD', 'PKR'], source: 'KES', range: 0, amount: '1000', recents: ['KES', 'PKR', 'CAD'], tab: 'prices', hi: null
+}, store.get('state', {}));
+if (!META[state.local]) state.local = 'KES';
+state.home = (state.home || []).filter(c => META[c]).slice(0, 3);
+const save = () => store.set('state', { local: state.local, home: state.home, source: state.source, range: state.range, amount: state.amount, recents: state.recents, tab: state.tab });
+
+let rates = store.get('rates', null) || { rates: BUNDLED, date: null, fetchedAt: 0, provider: 'bundled' };
+
+/* ---------- Rates ---------- */
+const SOURCES = [
+  { name: 'Exchange API', url: 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json',
+    parse: j => ({ date: j.date, rates: upper(j.usd) }) },
+  { name: 'Exchange API', url: 'https://latest.currency-api.pages.dev/v1/currencies/usd.min.json',
+    parse: j => ({ date: j.date, rates: upper(j.usd) }) },
+  { name: 'ExchangeRate-API', url: 'https://open.er-api.com/v6/latest/USD',
+    parse: j => { if (j.result !== 'success') throw 0; return { date: new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 10), rates: j.rates }; } }
+];
+function upper(o) { const r = {}; for (const k in o) { const K = k.toUpperCase(); if (BUNDLED[K] !== undefined && typeof o[k] === 'number' && o[k] > 0) r[K] = o[k]; } return r; }
+
+let refreshing = false;
+async function refreshRates(manual) {
+  if (refreshing) return; refreshing = true; renderStatus(manual ? 'Updating…' : null);
+  for (const s of SOURCES) {
+    try {
+      const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 8000);
+      const res = await fetch(s.url, { signal: ctl.signal, cache: 'no-store' }); clearTimeout(to);
+      if (!res.ok) continue;
+      const p = s.parse(await res.json());
+      if (!p.rates || Object.keys(p.rates).length < 100) continue;
+      rates = { rates: Object.assign({}, BUNDLED, p.rates), live: Object.keys(p.rates), date: p.date, fetchedAt: Date.now(), provider: s.name };
+      store.set('rates', rates); refreshing = false; renderAll();
+      if (manual) toast('Rates updated');
+      return;
+    } catch (e) { /* try next source */ }
+  }
+  refreshing = false; renderAll();
+  if (manual) toast('Couldn’t reach the rate service. Using saved rates.');
+}
+
+const rate = c => rates.rates[c] || BUNDLED[c];
+const convert = (amt, from, to) => amt / rate(from) * rate(to);
+
+/* ---------- Formatting ---------- */
+const nf = {};
+function f(v, max, min) { const k = max + ':' + (min || 0); return (nf[k] ||= new Intl.NumberFormat(locale, { maximumFractionDigits: max, minimumFractionDigits: min || 0 })).format(v); }
+function fmtValue(v) {
+  const a = Math.abs(v);
+  if (a >= 1000) return f(v, 0);
+  if (a >= 100) return f(v, 0);
+  if (a >= 1) return f(v, 2, 2);
+  if (a === 0) return '0';
+  return new Intl.NumberFormat(locale, { maximumSignificantDigits: 3 }).format(v);
+}
+const fmtSource = v => f(v, 2);
+let cnf; const compact = v => { try { return (cnf ||= new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 })).format(v); } catch (e) { return f(v, 0); } };
+function fmtDate(iso) { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' }); }
+function ago(ts) {
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60); if (h < 24) return h + ' hr ago';
+  const d = Math.round(h / 24); return d + (d === 1 ? ' day ago' : ' days ago');
+}
+
+/* ---------- Derived ---------- */
+const pair = () => [state.local, ...state.home.filter(c => c !== state.local)];
+function ensureSource() { if (!pair().includes(state.source)) state.source = state.local; }
+function baseStep(code) { return Math.pow(10, Math.max(0, Math.round(Math.log10(rate(code))))); }
+const ROWS = [1,2,3,4,5,6,7,8,9,10, 20,30,40,50,60,70,80,90,100];
+
+/* ---------- Rendering ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+function renderStatus(override) {
+  let html;
+  if (override) html = `<span class="status-dot"></span>${override}`;
+  else if (rates.provider === 'bundled') html = `<span class="status-dot warn"></span>Approximate rates · connect to update`;
+  else {
+    const stale = Date.now() - rates.fetchedAt > 36 * 3600e3;
+    html = `<span class="status-dot${stale ? ' warn' : ''}"></span>Rates for ${fmtDate(rates.date)} · checked ${ago(rates.fetchedAt)}`;
+  }
+  $('statusLine').innerHTML = html; $('statusLine2').innerHTML = html;
+}
+
+function segButtons(el, onPick) {
+  el.innerHTML = pair().map(c => `<button data-c="${c}" aria-pressed="${c === state.source}"><span>${meta(c).flag}</span>${c}</button>`).join('');
+  el.onclick = e => { const b = e.target.closest('button'); if (b) onPick(b.dataset.c); };
+}
+
+function renderPrices() {
+  const m = meta(state.local);
+  $('hereFlag').textContent = m.flag;
+  $('hereName').textContent = (m.country ? m.country + ' · ' : '') + m.name;
+
+  segButtons($('srcSegPrices'), c => { state.source = c; state.hi = null; save(); renderPrices(); renderConvert(); });
+
+  const s0 = baseStep(state.source);
+  const ranges = [s0, s0 * 10, s0 * 100];
+  if (state.range > 2) state.range = 0;
+  $('rangeSeg').innerHTML = ranges.map((s, i) => `<button data-i="${i}" aria-pressed="${i === state.range}">${compact(s)}–${compact(s * 100)}</button>`).join('');
+  $('rangeSeg').onclick = e => { const b = e.target.closest('button'); if (b) { state.range = +b.dataset.i; state.hi = null; save(); renderPrices(); } };
+
+  const step = ranges[state.range];
+  const cols = pair();
+  const others = cols.filter(c => c !== state.source);
+  const all = [state.source, ...others];
+  const t = $('table');
+  t.style.setProperty('--cols', `minmax(0,1.05fr) repeat(${others.length}, minmax(0,1fr))`);
+  let h = `<div class="trow thead" role="row">${all.map(c => `<div role="columnheader"><span class="f">${meta(c).flag}</span>${c}</div>`).join('')}</div><div class="tbody" role="rowgroup">`;
+  ROWS.forEach((n, i) => {
+    const amt = n * step;
+    if (i === 10) h += `<div class="tgap" aria-hidden="true"></div>`;
+    h += `<div class="trow${state.hi === amt ? ' hi' : ''}" role="row" data-a="${amt}"><div class="num">${fmtSource(amt)}</div>${others.map(c => `<div class="num">${fmtValue(convert(amt, state.source, c))}</div>`).join('')}</div>`;
+  });
+  t.innerHTML = h + '</div>';
+  t.setAttribute('role', 'table');
+}
+
+function evalAmount(str) {
+  const s = String(str || '').replace(/[×x]/g, '*').replace(/÷/g, '/').replace(/[\s,]/g, '').replace(/−/g, '-');
+  if (!s) return NaN;
+  if (!/^[\d.+\-*/()]+$/.test(s)) return NaN;
+  // tiny recursive-descent parser: expr = term (('+'|'-') term)*, term = factor (('*'|'/') factor)*
+  let i = 0;
+  const num = () => { const m = /^\d*\.?\d+|^\d+\.?/.exec(s.slice(i)); if (!m) throw 0; i += m[0].length; return parseFloat(m[0]); };
+  const factor = () => { if (s[i] === '(') { i++; const v = expr(); if (s[i++] !== ')') throw 0; return v; } if (s[i] === '-') { i++; return -factor(); } return num(); };
+  const term = () => { let v = factor(); while (s[i] === '*' || s[i] === '/') { const o = s[i++]; const r = factor(); v = o === '*' ? v * r : v / r; } return v; };
+  const expr = () => { let v = term(); while (s[i] === '+' || s[i] === '-') { const o = s[i++]; const r = term(); v = o === '+' ? v + r : v - r; } return v; };
+  try { const v = expr(); return i === s.length && isFinite(v) ? v : NaN; } catch (e) { return NaN; }
+}
+
+function renderConvert(keepInput) {
+  segButtons($('srcSegConvert'), c => {
+    const v = evalAmount(state.amount);
+    if (isFinite(v)) state.amount = String(+convert(v, state.source, c).toFixed(2));
+    state.source = c; save(); renderAll();
+  });
+  const m = meta(state.source);
+  $('amtFlag').textContent = m.flag; $('amtLabel').textContent = `${m.name} (${m.code})`;
+  if (!keepInput) $('amount').value = state.amount;
+  const v = evalAmount(state.amount);
+  const isExpr = /[+\-*/×x÷]/.test(String(state.amount).replace(/^-/, ''));
+  $('amtHint').textContent = isFinite(v) && isExpr ? '= ' + fmtSource(v) + ' ' + state.source : '';
+  const others = pair().filter(c => c !== state.source);
+  $('results').innerHTML = others.map(c => {
+    const mm = meta(c);
+    const out = isFinite(v) ? fmtValue(convert(v, state.source, c)) : '—';
+    return `<button class="cell" data-c="${c}">
+      <span class="flag">${mm.flag}</span>
+      <div class="txt"><div class="t1">${c}</div><div class="t2">${esc(mm.name)}</div></div>
+      <div class="val"><div class="v1 num">${out}</div><div class="v2">1 ${c} = ${fmtValue(convert(1, c, state.source))} ${state.source}</div></div>
+    </button>`;
+  }).join('') || `<div class="empty">Add a home currency in Currencies.</div>`;
+}
+
+function renderSettings() {
+  const m = meta(state.local);
+  $('localRow').innerHTML = `<span class="flag">${m.flag}</span><div class="txt"><div class="t1">${esc(m.name)}</div><div class="t2">${m.code}${m.country ? ' · ' + esc(m.country) : ''}</div></div><svg class="chev" width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 7.5 7.5 1.5 13.5"/></svg>`;
+  const n = state.home.length;
+  $('homeList').innerHTML = state.home.map((c, i) => {
+    const mm = meta(c);
+    return `<div class="cell static">
+      <button class="minus" data-rm="${c}" aria-label="Remove ${esc(mm.name)}" ${n <= 1 ? 'disabled' : ''}>−</button>
+      <span class="flag">${mm.flag}</span>
+      <div class="txt"><div class="t1">${esc(mm.name)}</div><div class="t2">${c}</div></div>
+      <div class="order">
+        <button data-up="${i}" aria-label="Move ${c} up" ${i === 0 ? 'disabled' : ''}><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4-4 4 4"/></svg></button>
+        <button data-down="${i}" aria-label="Move ${c} down" ${i === n - 1 ? 'disabled' : ''}><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"/></svg></button>
+      </div>
+    </div>`;
+  }).join('') + (n < 3 ? `<button class="cell tint" id="addHome"><span class="flag" style="font-size:22px;color:var(--tint)">＋</span><div class="txt"><div class="t1">Add currency</div></div></button>` : '');
+  $('ratesDate').textContent = rates.provider === 'bundled' ? 'Approximate' : fmtDate(rates.date);
+  $('ratesSource').textContent = rates.provider === 'bundled' ? 'Built in' : rates.provider;
+}
+
+function renderAll() { ensureSource(); renderStatus(); renderPrices(); renderConvert(document.activeElement === $('amount')); renderSettings(); }
+
+/* ---------- Tabs ---------- */
+const TITLES = { prices: 'Prices', convert: 'Convert', settings: 'Currencies' };
+function showTab(tab) {
+  state.tab = tab; save();
+  for (const t of Object.keys(TITLES)) $('view-' + t).hidden = t !== tab;
+  document.querySelectorAll('.tabbar [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+  $('smallTitle').textContent = TITLES[tab];
+  window.scrollTo(0, 0); onScroll();
+}
+document.querySelector('.tabbar').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
+function onScroll() { $('navbar').classList.toggle('scrolled', window.scrollY > 36); }
+window.addEventListener('scroll', onScroll, { passive: true });
+
+/* ---------- Interactions ---------- */
+$('table').addEventListener('click', e => {
+  const r = e.target.closest('.tbody .trow'); if (!r) return;
+  const a = +r.dataset.a; state.hi = state.hi === a ? null : a; renderPrices();
+});
+$('amount').addEventListener('input', e => { state.amount = e.target.value; save(); renderConvert(true); });
+$('amount').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$('amount').addEventListener('focus', e => setTimeout(() => e.target.select(), 0));
+$('results').addEventListener('click', e => {
+  const b = e.target.closest('[data-c]'); if (!b) return;
+  const v = evalAmount(state.amount);
+  if (isFinite(v)) state.amount = String(+convert(v, state.source, b.dataset.c).toFixed(2));
+  state.source = b.dataset.c; save(); renderAll();
+});
+$('homeList').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.id === 'addHome') return openSheet('home');
+  if (t.dataset.rm) { state.home = state.home.filter(c => c !== t.dataset.rm); }
+  else if (t.dataset.up) { const i = +t.dataset.up; [state.home[i - 1], state.home[i]] = [state.home[i], state.home[i - 1]]; }
+  else if (t.dataset.down) { const i = +t.dataset.down; [state.home[i + 1], state.home[i]] = [state.home[i], state.home[i + 1]]; }
+  save(); renderAll();
+});
+$('hereBtn').addEventListener('click', () => openSheet('local'));
+$('localRow').addEventListener('click', () => openSheet('local'));
+$('refreshBtn').addEventListener('click', () => refreshRates(true));
+
+/* ---------- Sheet (currency picker) ---------- */
+let sheetMode = 'local', lastFocus = null;
+function openSheet(mode) {
+  sheetMode = mode; lastFocus = document.activeElement;
+  $('sheetTitle').textContent = mode === 'local' ? 'Where are you?' : 'Add home currency';
+  $('search').value = ''; renderSheet();
+  $('scrim').hidden = false; $('sheet').hidden = false;
+  requestAnimationFrame(() => { $('scrim').classList.add('open'); $('sheet').classList.add('open'); });
+  document.body.style.overflow = 'hidden';
+  $('sheetList').scrollTop = 0;
+}
+function closeSheet() {
+  $('scrim').classList.remove('open'); $('sheet').classList.remove('open'); document.body.style.overflow = '';
+  setTimeout(() => { $('scrim').hidden = true; $('sheet').hidden = true; }, 320);
+  $('search').blur(); if (lastFocus && lastFocus.focus) lastFocus.focus();
+}
+function row(c, selected) {
+  const m = meta(c);
+  return `<button class="cell" data-pick="${c}"><span class="flag">${m.flag}</span><div class="txt"><div class="t1">${esc(m.name)}</div><div class="t2">${c}${m.country ? ' · ' + esc(m.country) : ''}</div></div>${selected ? '<span class="check" aria-label="Selected">✓</span>' : ''}</button>`;
+}
+function renderSheet() {
+  const q = $('search').value.trim().toLowerCase();
+  const exclude = sheetMode === 'home' ? new Set(state.home) : new Set();
+  const sorted = CODES.filter(c => !exclude.has(c)).sort((a, b) => meta(a).name.localeCompare(meta(b).name, locale));
+  let h = '';
+  if (!q) {
+    const rec = (state.recents || []).filter(c => META[c] && !exclude.has(c)).slice(0, 5);
+    if (sheetMode === 'local' && rec.length) h += `<div class="section-label">Recent</div><div class="list">${rec.map(c => row(c, c === state.local)).join('')}</div>`;
+    h += `<div class="section-label">All currencies · ${sorted.length}</div><div class="list">${sorted.map(c => row(c, sheetMode === 'local' && c === state.local)).join('')}</div>`;
+  } else {
+    const words = q.split(/\s+/);
+    const hits = sorted.filter(c => words.every(w => META[c].search.includes(w)))
+      .sort((a, b) => (a.toLowerCase() === q ? -1 : 0) - (b.toLowerCase() === q ? -1 : 0));
+    h = hits.length ? `<div class="list" style="margin-top:8px">${hits.map(c => row(c, sheetMode === 'local' && c === state.local)).join('')}</div>` : `<div class="empty">No currency matches “${esc(q)}”.</div>`;
+  }
+  $('sheetList').innerHTML = h;
+}
+$('search').addEventListener('input', renderSheet);
+$('sheetDone').addEventListener('click', closeSheet);
+$('scrim').addEventListener('click', closeSheet);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
+$('sheetList').addEventListener('click', e => {
+  const b = e.target.closest('[data-pick]'); if (!b) return;
+  const c = b.dataset.pick;
+  if (sheetMode === 'local') {
+    const prevLocal = state.local;
+    state.local = c;
+    state.recents = [c, ...(state.recents || []).filter(x => x !== c)].slice(0, 5);
+    if (state.source === prevLocal || !pair().includes(state.source)) state.source = c;
+    state.hi = null;
+    toast(`Prices now in ${c}`);
+  } else if (state.home.length < 3 && !state.home.includes(c)) {
+    state.home.push(c);
+  }
+  save(); renderAll(); closeSheet();
+});
+
+// Swipe the sheet down to dismiss
+(() => {
+  let y0 = null, dy = 0; const sh = $('sheet');
+  sh.addEventListener('touchstart', e => { if ($('sheetList').scrollTop > 0 && !e.target.closest('header,.grab')) return; y0 = e.touches[0].clientY; dy = 0; }, { passive: true });
+  sh.addEventListener('touchmove', e => { if (y0 == null) return; dy = Math.max(0, e.touches[0].clientY - y0); if (dy > 0) { sh.style.transition = 'none'; sh.style.transform = `translateY(${dy}px)`; } }, { passive: true });
+  sh.addEventListener('touchend', () => { if (y0 == null) return; sh.style.transition = ''; sh.style.transform = ''; if (dy > 110) closeSheet(); y0 = null; });
+})();
+
+let toastT; function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+
+/* ---------- Boot ---------- */
+showTab(TITLES[state.tab] ? state.tab : 'prices');
+renderAll();
+if (Date.now() - (rates.fetchedAt || 0) > 3 * 3600e3) refreshRates(false);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - (rates.fetchedAt || 0) > 3 * 3600e3) refreshRates(false); else if (!document.hidden) renderStatus(); });
+window.addEventListener('online', () => refreshRates(false));
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+})();
+</script>
+</body>
+</html>
